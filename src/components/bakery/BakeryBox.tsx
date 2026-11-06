@@ -55,8 +55,8 @@ export const BakeryBox = forwardRef<HTMLDivElement, BakeryBoxProps>(function Bak
       <AnimatePresence>
         {contents.map((c, i) => {
           const item = ALL_ITEMS[c.productId];
-          const slot = CONTENT_SLOTS[Math.min(i, CONTENT_SLOTS.length - 1)];
           if (!item) return null;
+          const slot = CONTENT_SLOTS[i % CONTENT_SLOTS.length] ?? CONTENT_SLOTS[0]!;
           return (
             <motion.img
               key={c.uid}

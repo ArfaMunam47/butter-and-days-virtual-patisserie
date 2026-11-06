@@ -3,7 +3,6 @@ import { AnimatePresence, motion, useMotionValue } from "motion/react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ALL_ITEMS,
-  TOPPINGS,
   fmt,
   type BakeryItem,
 } from "@/data/products";
@@ -82,7 +81,11 @@ function Index() {
   const completedFlights = useRef<Set<string>>(new Set());
 
   const lines: CartLine[] = useMemo(
-    () => cart.map((c) => ({ item: ALL_ITEMS[c.id], qty: c.qty })),
+    () =>
+      cart.flatMap((c) => {
+        const item = ALL_ITEMS[c.id];
+        return item ? [{ item, qty: c.qty }] : [];
+      }),
     [cart],
   );
   const count = useMemo(() => cart.reduce((a, c) => a + c.qty, 0), [cart]);
@@ -117,17 +120,12 @@ function Index() {
   );
 
   const completeFlight = useCallback(
-    (uid: string) => {
-      if (completedFlights.current.has(uid)) return;
-      completedFlights.current.add(uid);
-      setFlights((prev) => {
-        const f = prev.find((fl) => fl.uid === uid);
-        if (f) {
-          addToCart(f.item.id);
-          appendToBox(f.item.id);
-        }
-        return prev.filter((fl) => fl.uid !== uid);
-      });
+    (flight: Flight) => {
+      if (completedFlights.current.has(flight.uid)) return;
+      completedFlights.current.add(flight.uid);
+      addToCart(flight.item.id);
+      appendToBox(flight.item.id);
+      setFlights((prev) => prev.filter((fl) => fl.uid !== flight.uid));
     },
     [addToCart, appendToBox],
   );
@@ -256,7 +254,7 @@ function Index() {
   const pickup = useMemo(pickupTime, []);
 
   return (
-    <div className="scene-wall relative flex min-h-[100dvh] w-full flex-col select-none">
+    <div className="scene-wall relative flex min-h-[100dvh] w-full flex-col select-none overflow-x-clip">
       {/* Backdrop layers */}
       <div className="scene-floor absolute inset-x-0 bottom-0 top-[64%] hidden lg:block" aria-hidden />
       <div className="wainscot absolute bottom-0 right-0 top-0 hidden w-[6.5%] lg:block" aria-hidden />
@@ -271,7 +269,7 @@ function Index() {
 
       <main className="relative z-10 mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-5 px-4 pb-8 pt-[84px] lg:flex-row lg:items-stretch lg:gap-2 lg:px-8">
         {/* Left column: vintage cash register */}
-        <aside className="order-3 flex items-end justify-center lg:order-1 lg:w-[17%] lg:flex-col lg:justify-end lg:pb-12">
+        <aside className="order-3 flex items-end justify-center lg:order-1 lg:w-[19%] lg:flex-col lg:justify-end lg:pb-12">
           <CashRegister total={total} count={count} />
         </aside>
 
@@ -331,7 +329,7 @@ function Index() {
         </section>
 
         {/* Right column: the topping jugs */}
-        <aside className="order-2 flex flex-col items-center justify-center gap-3 lg:order-3 lg:w-[17%] lg:justify-end lg:pb-12">
+        <aside className="order-2 flex flex-col items-center justify-center gap-3 lg:order-3 lg:w-[19%] lg:justify-end lg:pb-12">
           <p className="hidden font-display text-sm italic text-berry/70 lg:block">
             Pour a little extra…
           </p>
@@ -344,8 +342,12 @@ function Index() {
         <motion.div
           className="pointer-events-none fixed left-0 top-0 z-[80]"
           style={{ x: ghostX, y: ghostY }}
-          animate={drag.returning ? { x: drag.originX, y: drag.originY } : undefined}
-          transition={drag.returning ? { type: "spring", stiffness: 300, damping: 25 } : undefined}
+          {...(drag.returning
+            ? {
+                animate: { x: drag.originX, y: drag.originY },
+                transition: { type: "spring" as const, stiffness: 300, damping: 25 },
+              }
+            : {})}
           onAnimationComplete={() => {
             if (drag.returning) endDrag();
           }}
@@ -370,7 +372,7 @@ function Index() {
           initial={{ x: f.from.x, y: f.from.y, scale: 1, rotate: 0 }}
           animate={{ x: f.to.x, y: f.to.y, scale: 0.5, rotate: -12 }}
           transition={{ duration: 0.55, ease: [0.32, 0.72, 0.35, 1] }}
-          onAnimationComplete={() => completeFlight(f.uid)}
+          onAnimationComplete={() => completeFlight(f)}
         >
           <img
             src={f.item.image}
@@ -449,5 +451,3 @@ function Index() {
     </div>
   );
 }
-
-export const ToppingsForTest = TOPPINGS;

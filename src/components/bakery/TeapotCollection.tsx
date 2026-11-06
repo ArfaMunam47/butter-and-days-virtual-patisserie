@@ -11,14 +11,14 @@ interface TeapotCollectionProps {
  */
 export function TeapotCollection({ onPour, pouringId }: TeapotCollectionProps) {
   return (
-    <div className="flex items-end justify-center gap-2 sm:gap-4">
+    <div className="flex items-end justify-center gap-2 lg:gap-3 sm:gap-4">
       {TOPPINGS.map((t) => (
         <button
           key={t.id}
           type="button"
           aria-label={`Pour ${t.name} into your box (+${fmt(t.price)})`}
           onClick={(e) => onPour(t, e)}
-          className="group flex w-[72px] flex-col items-center focus:outline-none sm:w-[92px]"
+          className="group flex w-[72px] flex-col items-center focus:outline-none sm:w-[92px] lg:w-[84px]"
         >
           <motion.img
             src={t.image}
@@ -34,7 +34,7 @@ export function TeapotCollection({ onPour, pouringId }: TeapotCollectionProps) {
                 : { type: "spring", stiffness: 220, damping: 15 }
             }
             whileHover={{ y: -5, scale: 1.08 }}
-            className="h-[74px] w-[74px] cursor-pointer object-contain drop-shadow-[0_6px_10px_rgba(93,33,64,0.28)] sm:h-[92px] sm:w-[92px]"
+            className="h-[74px] w-[74px] cursor-pointer object-contain drop-shadow-[0_6px_10px_rgba(93,33,64,0.28)] sm:h-[92px] sm:w-[92px] lg:h-[84px] lg:w-[84px]"
           />
           <span className="mt-1.5 rounded-full border border-blush/70 bg-cream/95 px-2 py-1 text-center shadow-sm transition-colors group-hover:border-berry/40">
             <span className="block whitespace-nowrap font-display text-[11px] font-semibold leading-tight text-berry sm:text-[12px]">
