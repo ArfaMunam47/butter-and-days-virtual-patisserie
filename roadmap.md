@@ -1,0 +1,3 @@
+- [ ] Expand the menu to 18+ distinct image-backed pastries across four filters.
+- [ ] Organize box pieces, support removal and capacity feedback, and apply toppings to individual treats.
+- [ ] Keep register and demo checkout totals synchronized; verify interactions and layout.
