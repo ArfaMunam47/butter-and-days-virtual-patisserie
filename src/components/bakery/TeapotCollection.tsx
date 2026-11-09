@@ -1,24 +1,30 @@
 import { motion } from "motion/react";
 import { fmt, TOPPINGS, type BakeryItem } from "@/data/products";
+import { Button } from "@/components/ui/button";
 
 interface TeapotCollectionProps {
   onPour: (topping: BakeryItem, e: React.MouseEvent<HTMLButtonElement>) => void;
   pouringId: string | null;
+  hasTreats: boolean;
+  selectedToppingId: string | null;
+  onSelect: (toppingId: string) => void;
 }
 
 /**
  * Three pastel pour-jugs — click one and it tips a topping into your box.
  */
-export function TeapotCollection({ onPour, pouringId }: TeapotCollectionProps) {
+export function TeapotCollection({ onPour, pouringId, hasTreats, selectedToppingId, onSelect }: TeapotCollectionProps) {
   return (
     <div className="flex items-end justify-center gap-2 lg:gap-3 sm:gap-4">
       {TOPPINGS.map((t) => (
-        <button
+        <Button
           key={t.id}
           type="button"
           aria-label={`Pour ${t.name} into your box (+${fmt(t.price)})`}
+          aria-pressed={selectedToppingId === t.id}
           onClick={(e) => onPour(t, e)}
-          className="group flex w-[72px] flex-col items-center focus:outline-none sm:w-[92px] lg:w-[84px]"
+          disabled={!hasTreats}
+          className={`group flex h-auto w-[72px] flex-col items-center whitespace-normal bg-transparent p-0 shadow-none hover:bg-transparent sm:w-[92px] lg:w-[84px] ${selectedToppingId === t.id ? "rounded-lg ring-2 ring-berry" : ""}`}
         >
           <motion.img
             src={t.image}
@@ -42,7 +48,7 @@ export function TeapotCollection({ onPour, pouringId }: TeapotCollectionProps) {
             </span>
             <span className="block text-[10px] leading-tight text-cocoa">+{fmt(t.price)}</span>
           </span>
-        </button>
+        </Button>
       ))}
     </div>
   );

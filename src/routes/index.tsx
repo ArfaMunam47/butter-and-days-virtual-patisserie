@@ -3,7 +3,10 @@ import { AnimatePresence, motion, useMotionValue } from "motion/react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ALL_ITEMS,
+  BOX_TREAT_CAPACITY,
+  CATEGORIES,
   fmt,
+  type BakeryCategory,
   type BakeryItem,
 } from "@/data/products";
 import { BakeryHeader } from "@/components/bakery/BakeryHeader";
@@ -11,8 +14,10 @@ import { GlassDisplay } from "@/components/bakery/GlassDisplay";
 import { CashRegister } from "@/components/bakery/CashRegister";
 import { BakeryBox } from "@/components/bakery/BakeryBox";
 import { TeapotCollection } from "@/components/bakery/TeapotCollection";
-import { CheckoutModal, type CartLine } from "@/components/bakery/CheckoutModal";
+import { CheckoutModal } from "@/components/bakery/CheckoutModal";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { canAddTreat, getBoxTotal, groupBoxLines, type BoxTreat } from "@/lib/bakery-order";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -62,8 +67,7 @@ function pickupTime(): string {
 }
 
 function Index() {
-  const [cart, setCart] = useState<{ id: string; qty: number }[]>([]);
-  const [boxContents, setBoxContents] = useState<{ uid: string; productId: string }[]>([]);
+  const [boxContents, setBoxContents] = useState<BoxTreat[]>([]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,6 +76,10 @@ function Index() {
   const [pulse, setPulse] = useState(0);
   const [email, setEmail] = useState("");
   const [preorderSent, setPreorderSent] = useState(false);
+  const [category, setCategory] = useState<BakeryCategory>(CATEGORIES[0]);
+  const [selectedTreatUid, setSelectedTreatUid] = useState<string | null>(null);
+  const [selectedToppingId, setSelectedToppingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
 
   const dragRef = useRef<DragState | null>(null);
   const ghostX = useMotionValue(0);
@@ -80,33 +88,9 @@ function Index() {
   const contactRef = useRef<HTMLInputElement>(null);
   const completedFlights = useRef<Set<string>>(new Set());
 
-  const lines: CartLine[] = useMemo(
-    () =>
-      cart.flatMap((c) => {
-        const item = ALL_ITEMS[c.id];
-        return item ? [{ item, qty: c.qty }] : [];
-      }),
-    [cart],
-  );
-  const count = useMemo(() => cart.reduce((a, c) => a + c.qty, 0), [cart]);
-  const total = useMemo(
-    () => lines.reduce((a, l) => a + l.item.price * l.qty, 0),
-    [lines],
-  );
-
-  const addToCart = useCallback((id: string) => {
-    setCart((prev) => {
-      const existing = prev.find((c) => c.id === id);
-      if (existing) {
-        return prev.map((c) => (c.id === id ? { ...c, qty: c.qty + 1 } : c));
-      }
-      return [...prev, { id, qty: 1 }];
-    });
-  }, []);
-
-  const appendToBox = useCallback((productId: string) => {
-    setBoxContents((prev) => [...prev, { uid: nextUid(), productId }].slice(-6));
-  }, []);
+  const lines = useMemo(() => groupBoxLines(boxContents), [boxContents]);
+  const count = boxContents.length;
+  const total = useMemo(() => getBoxTotal(boxContents), [boxContents]);
 
   const startFlight = useCallback(
     (item: BakeryItem, from: { x: number; y: number }) => {
@@ -119,16 +103,19 @@ function Index() {
     [],
   );
 
-  const completeFlight = useCallback(
-    (flight: Flight) => {
+  const completeFlight = useCallback((flight: Flight) => {
       if (completedFlights.current.has(flight.uid)) return;
       completedFlights.current.add(flight.uid);
-      addToCart(flight.item.id);
-      appendToBox(flight.item.id);
+      setBoxContents((prev) => {
+        if (!canAddTreat(prev)) {
+          setNotice("Your gift box is full — remove a treat to make room.");
+          return prev;
+        }
+        setNotice("");
+        return [...prev, { uid: nextUid(), productId: flight.item.id, toppingId: null }];
+      });
       setFlights((prev) => prev.filter((fl) => fl.uid !== flight.uid));
-    },
-    [addToCart, appendToBox],
-  );
+    }, []);
 
   const endDrag = useCallback(() => {
     dragRef.current = null;
@@ -138,6 +125,10 @@ function Index() {
   const handleGrab = useCallback(
     (item: BakeryItem, e: React.PointerEvent) => {
       if (dragRef.current) return;
+      if (!canAddTreat(boxContents)) {
+        setNotice("Your gift box is full — remove a treat to make room.");
+        return;
+      }
       const st: DragState = {
         item,
         originX: e.clientX,
@@ -151,7 +142,7 @@ function Index() {
       ghostX.set(e.clientX);
       ghostY.set(e.clientY);
     },
-    [ghostX, ghostY],
+    [ghostX, ghostY, boxContents],
   );
 
   const dragActive = drag !== null;
@@ -213,28 +204,55 @@ function Index() {
     };
   }, [dragActive, ghostX, ghostY, startFlight, endDrag]);
 
-  const handlePour = useCallback(
-    (topping: BakeryItem, e: React.MouseEvent<HTMLButtonElement>) => {
-      if (pouringId) return;
-      setPouringId(topping.id);
-      const rect = e.currentTarget.getBoundingClientRect();
-      startFlight(topping, { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.3 });
-      window.setTimeout(() => setPouringId(null), 950);
-    },
-    [pouringId, startFlight],
-  );
+  const applyTopping = useCallback((uid: string, toppingId: string | null) => {
+    if (toppingId && !ALL_ITEMS[toppingId]) return;
+    setBoxContents((prev) => prev.map((treat) => treat.uid === uid ? { ...treat, toppingId } : treat));
+    setNotice(toppingId ? "Cream added to your treat." : "Cream removed.");
+    setSelectedToppingId(null);
+    setPouringId(toppingId);
+    window.setTimeout(() => setPouringId(null), 800);
+  }, []);
+
+  const handlePour = useCallback((topping: BakeryItem) => {
+    if (!boxContents.length) {
+      setNotice("Add a pastry to your box before choosing a cream.");
+      return;
+    }
+    setSelectedToppingId(topping.id);
+    setNotice(selectedTreatUid ? "Choose the highlighted treat again to add this cream." : "Now choose a treat in your box for this cream.");
+  }, [boxContents.length, selectedTreatUid]);
+
+  const selectTreat = useCallback((uid: string) => {
+    setSelectedTreatUid(uid);
+    if (selectedToppingId) applyTopping(uid, selectedToppingId);
+  }, [applyTopping, selectedToppingId]);
 
   const changeQty = useCallback((id: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((c) => (c.id === id ? { ...c, qty: c.qty + delta } : c))
-        .filter((c) => c.qty > 0),
-    );
+    setBoxContents((prev) => {
+      const line = groupBoxLines(prev).find((entry) => entry.id === id);
+      if (!line) return prev;
+      if (delta > 0) {
+        if (prev.length >= BOX_TREAT_CAPACITY) {
+          setNotice("Your gift box is full — remove a treat to make room.");
+          return prev;
+        }
+        return [...prev, { uid: nextUid(), productId: line.item.id, toppingId: line.topping?.id ?? null }];
+      }
+      const remove = [...prev].reverse().find((treat) => treat.productId === line.item.id && (treat.toppingId ?? null) === (line.topping?.id ?? null));
+      return remove ? prev.filter((treat) => treat.uid !== remove.uid) : prev;
+    });
   }, []);
 
   const removeLine = useCallback((id: string) => {
-    setCart((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+    const line = groupBoxLines(boxContents).find((entry) => entry.id === id);
+    if (line) setBoxContents((prev) => prev.filter((treat) => !(treat.productId === line.item.id && (treat.toppingId ?? null) === (line.topping?.id ?? null))));
+  }, [boxContents]);
+
+  const removeTreat = useCallback((uid: string) => setBoxContents((prev) => prev.filter((treat) => treat.uid !== uid)), []);
+  const handleTreatDrop = useCallback((uid: string, x: number, y: number) => {
+    if (x < 0 && y < 0) applyTopping(uid, null);
+    else if (selectedToppingId) applyTopping(uid, selectedToppingId);
+  }, [applyTopping, selectedToppingId]);
 
   const pulseCase = useCallback(() => setPulse((p) => p + 1), []);
 

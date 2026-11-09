@@ -4,8 +4,11 @@ import { Clock } from "lucide-react";
 import { fmt, PINK_BAG, type BakeryItem } from "@/data/products";
 
 export interface CartLine {
+  id: string;
   item: BakeryItem;
+  topping: BakeryItem | null;
   qty: number;
+  unitPrice: number;
 }
 
 interface CheckoutModalProps {
@@ -164,9 +167,9 @@ export function CheckoutModal({
                 ) : (
                   <>
                     <div className="mt-5 max-h-[236px] space-y-2.5 overflow-y-auto pr-1">
-                      {lines.map(({ item, qty }) => (
+                      {lines.map(({ id, item, topping, qty, unitPrice }) => (
                         <div
-                          key={item.id}
+                          key={id}
                           className="flex items-center gap-3 rounded-2xl bg-blush-light/70 p-2"
                         >
                           <img
@@ -181,13 +184,13 @@ export function CheckoutModal({
                             <div className="truncate font-display text-[15px] font-semibold leading-tight text-berry">
                               {item.name}
                             </div>
-                            <div className="text-[11px] text-cocoa">{fmt(item.price)} each</div>
+                            <div className="text-[11px] text-cocoa">{fmt(item.price)}{topping ? ` + ${topping.name} ${fmt(topping.price)}` : ""} each</div>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               aria-label={`One less ${item.name}`}
-                              onClick={() => onChangeQty(item.id, -1)}
+                              onClick={() => onChangeQty(id, -1)}
                               className="flex h-7 w-7 items-center justify-center rounded-full bg-cream text-berry shadow-sm transition hover:bg-blush"
                             >
                               −
@@ -196,19 +199,19 @@ export function CheckoutModal({
                             <button
                               type="button"
                               aria-label={`One more ${item.name}`}
-                              onClick={() => onChangeQty(item.id, 1)}
+                              onClick={() => onChangeQty(id, 1)}
                               className="flex h-7 w-7 items-center justify-center rounded-full bg-cream text-berry shadow-sm transition hover:bg-blush"
                             >
                               +
                             </button>
                           </div>
                           <div className="w-14 shrink-0 text-right font-display text-[15px] font-semibold text-berry">
-                            {fmt(item.price * qty)}
+                            {fmt(unitPrice * qty)}
                           </div>
                           <button
                             type="button"
                             aria-label={`Remove ${item.name} from your bag`}
-                            onClick={() => onRemove(item.id)}
+                            onClick={() => onRemove(id)}
                             className="w-4 shrink-0 text-lg leading-none text-cocoa/50 transition hover:text-berry"
                           >
                             ×
